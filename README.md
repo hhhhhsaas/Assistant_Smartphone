@@ -1,275 +1,307 @@
-# Hệ thống Tư vấn Điện thoại AI-Assisted
+# Expert System - Smartphone Advisor
 
-## Giới thiệu
-Đây là hệ thống Knowledge Base cho dự án tư vấn điện thoại thông minh sử dụng AI. Hệ thống sử dụng vector embeddings và semantic search để tìm kiếm và gợi ý điện thoại phù hợp với nhu cầu người dùng.
+Hệ chuyên gia tư vấn điện thoại thông minh sử dụng **Forward Chaining** + **Fuzzy Logic**, xây dựng bằng Python và Streamlit.
 
-## Tính năng chính
+## Tổng quan
 
-### 1. Knowledge Base
-- **Vector Store**: Sử dụng ChromaDB để lưu trữ vector embeddings
-- **Embedding Model**: Sentence Transformers để chuyển đổi text sang vectors
-- **Semantic Search**: Tìm kiếm theo ngữ nghĩa tự nhiên
-- **Similarity Search**: Tìm điện thoại tương tự
-- **Filtering**: Lọc theo giá, hãng, tính năng
+Hệ thống giúp người dùng tìm điện thoại phù hợp dựa trên nhu cầu cá nhân (gaming, chụp ảnh, pin trâu, v.v.) và ngân sách. Người dùng có thể mô tả bằng ngôn ngữ tự nhiên tiếng Việt, hệ thống sẽ phân tích, suy luận và xếp hạng các điện thoại phù hợp nhất.
 
-### 2. Retrieval System
-- Tìm kiếm theo câu hỏi tự nhiên
-- Gợi ý theo yêu cầu cụ thể (gaming, chụp ảnh, giá rẻ...)
-- So sánh nhiều điện thoại
-- Tìm theo khoảng giá
+**Quy mô:** 525 điện thoại | 66 luật suy luận | 20 thương hiệu | 6 phân khúc
 
-### 3. REST API
-- FastAPI server với endpoints đầy đủ
-- CORS enabled cho web applications
-- Swagger documentation tự động
+---
 
-## Cài đặt
+## Kiến trúc hệ thống
 
-### 1. Clone project
-```bash
-git clone <repository>
-cd Assistant_Smartphone
+```
+┌────────────────────────────────────────────────────────────────┐
+│                      USER INTERFACE                             │
+│                      (Streamlit Web App)                        │
+│   - Tìm bằng mô tả (NLP)                                     │
+│   - Tìm kiếm chi tiết (bộ lọc)                                │
+│   - Hỏi đáp từng bước                                         │
+│   - So sánh điện thoại                                         │
+│   - Pipeline Log (xem quy trình suy luận)                      │
+└────────────────────────┬───────────────────────────────────────┘
+                         │
+┌────────────────────────▼───────────────────────────────────────┐
+│                   INFERENCE ENGINE                              │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  1. NLP Parser (parse_natural_language)                   │  │
+│  │     Input tiếng Việt → Dict cấu trúc                     │  │
+│  │     (nhu cầu, ngân sách, hãng, tính năng, v.v.)          │  │
+│  └──────────────────────┬───────────────────────────────────┘  │
+│  ┌──────────────────────▼───────────────────────────────────┐  │
+│  │  2. Forward Chaining Engine                               │  │
+│  │     Đánh giá 66 rules IF-THEN → Suy ra facts mới         │  │
+│  │     Conflict Resolution: Priority → Specificity           │  │
+│  └──────────────────────┬───────────────────────────────────┘  │
+│  ┌──────────────────────▼───────────────────────────────────┐  │
+│  │  3. Fuzzy Logic System                                    │  │
+│  │     Tính điểm mờ cho từng điện thoại                      │  │
+│  │     6 tiêu chí: price, battery, camera, ram, screen,      │  │
+│  │     performance (trọng số thay đổi theo nhu cầu)          │  │
+│  └──────────────────────┬───────────────────────────────────┘  │
+│  ┌──────────────────────▼───────────────────────────────────┐  │
+│  │  4. Explanation Generator                                 │  │
+│  │     Giải thích TẠI SAO điện thoại được gợi ý              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────┬───────────────────────────────────────┘
+                         │
+┌────────────────────────▼───────────────────────────────────────┐
+│                    KNOWLEDGE BASE                               │
+│                                                                │
+│  ┌─────────────────────────────────────────────────────┐       │
+│  │  Rules (66 luật)                                     │       │
+│  │  - Recommendation Rules (R1-R50): IF nhu cầu THEN   │       │
+│  │    filters/preferences                               │       │
+│  │  - Classification Rules (CLS_): Phân loại phone      │       │
+│  │    theo giá/tên/RAM                                  │       │
+│  └─────────────────────────────────────────────────────┘       │
+│  ┌─────────────────────────────────────────────────────┐       │
+│  │  Phone Facts (525 sự kiện)                           │       │
+│  │  - 55 trường dữ liệu mỗi phone                      │       │
+│  │  - Lưu trữ: cellphones_vector_store.pkl             │       │
+│  │  - Tìm kiếm: theo giá, hãng, category              │       │
+│  └─────────────────────────────────────────────────────┘       │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Tạo môi trường ảo
+---
+
+## Pipeline xử lý (5 bước)
+
+Khi người dùng tìm kiếm, hệ thống thực hiện 5 bước tuần tự:
+
+### Bước 1: NLP Parsing
+Phân tích câu tiếng Việt thành dữ liệu cấu trúc.
+
+```
+Input:  "Điện thoại chơi game tầm 15 triệu"
+Output: {user_need: "gaming", budget: 16500000, budget_min: 13500000}
+```
+
+Hỗ trợ nhận dạng:
+- 14 loại nhu cầu (gaming, photography, battery_life, premium, office, media, selfie, video, student, business, outdoor, lightweight, innovation, water_resistant)
+- Ngân sách (tầm X triệu, dưới X triệu, từ X đến Y triệu)
+- Thương hiệu (iPhone, Samsung, Xiaomi, OPPO, Vivo, Realme, v.v.)
+- Tính năng đặc biệt (NFC, 5G, sạc không dây, jack tai nghe, v.v.)
+- Camera chi tiết (zoom, OIS, góc rộng, chụp đêm, macro, v.v.)
+
+### Bước 2: Forward Chaining
+Đánh giá 66 luật IF-THEN theo thứ tự ưu tiên (priority cao chạy trước).
+
+```
+IF user_need = "gaming" AND budget >= 15000000
+THEN category_filter = [gaming, flagship]
+     min_ram = 12GB
+     min_processor_tier = high
+     min_refresh_rate = 120Hz
+```
+
+**Conflict Resolution:** Khi nhiều rules cùng fire, rule có priority cao hơn ghi đè rule thấp hơn.
+
+### Bước 3: Knowledge Base Search + Filtering
+- Tìm tất cả phones thỏa criteria cơ bản (giá, category, brand)
+- Lọc tiếp theo inferred facts (RAM, pin, camera, processor tier, NFC, v.v.)
+
+```
+500 candidates → filter → 22 phones pass
+```
+
+### Bước 4: Fuzzy Logic Scoring
+Tính điểm mờ cho mỗi phone qua 6 tiêu chí với trọng số thay đổi theo nhu cầu:
+
+| Nhu cầu | Performance | Screen | RAM | Battery | Price | Camera |
+|---------|-------------|--------|-----|---------|-------|--------|
+| Gaming | 35% | 30% | 15% | 12% | 5% | 3% |
+| Photography | 15% | 5% | 10% | 10% | 10% | 50% |
+| Battery | 15% | 5% | 8% | 55% | 15% | 2% |
+| Student | 10% | 5% | 10% | 15% | 40% | 20% |
+
+**Công thức tổng điểm:**
+```
+Total Score = Fuzzy Score × 0.7 + Rule Compliance × 0.3
+```
+
+### Bước 5: Ranking & Output
+Sắp xếp theo tổng điểm giảm dần, trả về top N kết quả kèm giải thích.
+
+---
+
+## Cấu trúc thư mục
+
+```
+Assistant_Smartphone/
+├── app.py                          # Streamlit UI chính
+├── inference_engine/
+│   ├── integrated_inference.py     # IntegratedPhoneAdvisor (điều phối toàn bộ)
+│   ├── forward_chaining.py         # Forward Chaining Engine
+│   ├── fuzzy_logic.py              # Fuzzy Logic scoring system
+│   ├── explanation.py              # Explanation Generator
+│   └── conflict_resolution.py      # Conflict resolution strategies
+├── knowledge_base/
+│   ├── __init__.py                 # KnowledgeBase class (facade)
+│   ├── rules.py                    # 66 rules + ClassificationRules
+│   ├── phone_facts.py              # PhoneFacts - quản lý dữ liệu phone
+│   ├── vector_store.py             # Vector store interface
+│   ├── embeddings.py               # Embedding utilities
+│   ├── indexer.py                   # Data indexer
+│   └── retriever.py                # Retrieval interface
+├── data/
+│   ├── cellphones_vector_store.pkl # Knowledge Base chính (525 phones)
+│   ├── cellphones_stats.json       # Thống kê DB
+│   ├── cellphones_processed_full.json # Dữ liệu đã xử lý (JSON)
+│   ├── CellphoneS_Data_Final_Cleaned.xlsx # Source data gốc
+│   └── column_mapping.json         # Mapping cột Excel → field
+├── knowledge_acquisition.py        # Module thêm/sửa/xóa rules & facts
+├── working_memory.py               # Working memory cho inference
+├── index_cellphones_data.py        # Script index data từ Excel → pkl
+├── utils/
+│   ├── config.py                   # Configuration
+│   └── data_loader.py              # Data loading utilities
+├── tests/                          # Unit tests
+├── api/                            # FastAPI endpoints (optional)
+├── deploy/                         # Docker, Heroku configs
+├── .streamlit/config.toml          # Streamlit theme config
+├── requirements.txt                # Full dependencies
+└── requirements_simple.txt         # Minimal dependencies
+```
+
+---
+
+## Cài đặt & Chạy
+
+### Yêu cầu
+- Python 3.10+
+- Windows / Linux / macOS
+
+### Cài đặt
+
 ```bash
+git clone https://github.com/hhhhhsaas/Assistant_Smartphone.git
+cd Assistant_Smartphone
+
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
 # Linux/Mac
 source .venv/bin/activate
+
+pip install -r requirements_simple.txt
 ```
 
-### 3. Cài đặt dependencies
+### Chạy ứng dụng
+
 ```bash
-pip install -r requirements.txt
+streamlit run app.py
 ```
 
-### 4. Cấu hình môi trường
-Chỉnh sửa file `.env` nếu cần:
-```env
-EMBEDDING_MODEL=all-MiniLM-L6-v2
-API_HOST=0.0.0.0
-API_PORT=8000
-LOG_LEVEL=INFO
-```
+Mở trình duyệt tại `http://localhost:8501`
 
-## Sử dụng
+### Index lại dữ liệu (nếu cần)
 
-### 1. Setup và Index dữ liệu
 ```bash
-# Setup knowledge base
-python run_system.py setup
-
-# Index sample data
-python run_system.py index --data-path data/sample_phones.json
-
-# Clear và reindex
-python run_system.py index --data-path data/sample_phones.json --clear
+python index_cellphones_data.py
 ```
 
-### 2. Chạy Interactive Search
-```bash
-python run_system.py search
+File `data/cellphones_vector_store.pkl` sẽ được tạo lại từ `data/CellphoneS_Data_Final_Cleaned.xlsx`.
+
+---
+
+## Chi tiết kỹ thuật
+
+### Forward Chaining Engine
+
+Engine đánh giá rules theo vòng lặp:
+1. Thu thập tất cả rules có conditions thỏa mãn (matching rules)
+2. Conflict resolution: chọn rule có priority cao nhất
+3. Fire rule → thêm actions vào working memory (inferred facts)
+4. Lặp lại cho đến khi không còn rule nào fire được
+
+**Đặc biệt:** Rules có budget range (min/max) sẽ fire khi budget nằm trong khoảng. Rules cùng loại nhưng budget khác nhau cho phép hệ thống gợi ý khác nhau tùy ngân sách.
+
+### Fuzzy Logic System
+
+Sử dụng hàm membership trapezoidal/triangular để đánh giá mức độ phù hợp:
+
+- **Price fitness:** Điểm cao khi giá nằm trong ngân sách, giảm dần khi vượt
+- **Battery fitness:** Dựa trên dung lượng mAh, chuẩn hóa theo phân khúc
+- **Camera fitness:** MP camera chính + bonus cho camera front
+- **RAM fitness:** Dựa trên GB RAM, chuẩn hóa
+- **Screen fitness:** Kích thước + refresh rate
+- **Performance fitness:** Dựa trên processor tier (low → mid → upper-mid → high)
+
+### Processor Tier Classification
+
+```
+high:       Snapdragon 8 Gen 2/3, Apple A17/A18/A19, Dimensity 9200/9300
+upper-mid:  Snapdragon 7+ Gen 2, Dimensity 1080/1200/1300
+gaming-mid: Helio G95/G96/G99
+mid:        Snapdragon 6xx, Dimensity 6xx
+low:        Snapdragon 4xx, Snapdragon 2xx, Helio P series
 ```
 
-Các lệnh trong interactive mode:
-- `search <query>`: Tìm kiếm điện thoại
-- `similar <phone_id>`: Tìm điện thoại tương tự
-- `compare <id1> <id2>`: So sánh 2 điện thoại
-- `price <min> <max>`: Tìm theo khoảng giá
-- `stats`: Xem thống kê database
-- `quit`: Thoát
+### Classification Rules
 
-### 3. Chạy API Server
-```bash
-python run_system.py api
+Phones được phân loại tự động khi indexing:
+1. **Gaming:** Tên chứa "ROG", "Red Magic", "Black Shark", "Legion"
+2. **Foldable:** Tên chứa "Fold", "Flip", "Galaxy Z", "Razr"
+3. **Flagship:** Giá > 20 triệu (hoặc RAM >= 12GB khi không có giá)
+4. **Midrange:** Giá 5-20 triệu (hoặc RAM >= 8GB)
+5. **Budget:** Giá < 5 triệu (hoặc RAM >= 4GB)
+6. **Entry:** Fallback
+
+### Pipeline Log UI
+
+Sau mỗi lần tìm kiếm, UI hiển thị expander "Pipeline Expert System" với chi tiết:
+- Input parsed từ NLP
+- Rules được kích hoạt (tên + mô tả)
+- Facts suy ra
+- Bộ lọc áp dụng + số máy trước/sau lọc
+- Fuzzy weights (bar chart)
+- Top 3 kết quả + điểm
+
+---
+
+## Ví dụ sử dụng
+
+### Tìm bằng mô tả
+```
+"Điện thoại chơi game tầm 15 triệu"
+→ 22 kết quả, top: HONOR Magic 7 Pro (86%)
+
+"iPhone chụp ảnh đẹp dưới 25 triệu"
+→ 9 kết quả (Apple + camera 48MP+ OIS)
+
+"Pin trâu giá rẻ cho sinh viên"
+→ 13 kết quả (OPPO/Xiaomi, 6000mAh, < 10 triệu)
+
+"Samsung màn hình gập"
+→ 9 foldable Samsung
 ```
 
-Server sẽ chạy tại `http://localhost:8000`
+### Tìm kiếm chi tiết
+- Kéo slider ngân sách: 10-20 triệu
+- Chọn hãng: Xiaomi
+- Chọn mục đích: Gaming
+- Tick: 5G, RAM >= 12GB
+- Nhấn Tìm kiếm
 
-API Documentation: `http://localhost:8000/docs`
+---
 
-### 4. Test hệ thống
-```bash
-python run_system.py test
-# hoặc
-python test_knowledge_base.py
-```
+## Dependencies chính
 
-## API Endpoints
+| Package | Mục đích |
+|---------|----------|
+| streamlit | Web UI |
+| pandas | Data processing |
+| numpy | Numerical computing |
+| scikit-learn | Cosine similarity |
+| openpyxl | Đọc file Excel |
 
-### Search
-```http
-POST /api/search
-{
-  "query": "điện thoại chơi game",
-  "n_results": 5
-}
-```
-
-### Recommend
-```http
-POST /api/recommend
-{
-  "purpose": "gaming",
-  "budget_min": 10000000,
-  "budget_max": 20000000,
-  "features": ["5G", "120Hz"]
-}
-```
-
-### Get Phone Details
-```http
-GET /api/phone/{phone_id}
-```
-
-### Find Similar Phones
-```http
-GET /api/similar/{phone_id}?n_results=5
-```
-
-### Compare Phones
-```http
-POST /api/compare
-{
-  "phone_ids": ["phone_id_1", "phone_id_2"]
-}
-```
-
-### Price Range Search
-```http
-GET /api/price-range?min_price=5000000&max_price=15000000
-```
-
-## Cấu trúc dữ liệu
-
-### Phone Data Schema
-```json
-{
-  "name": "string",
-  "brand": "string",
-  "price": "number",
-  "category": "flagship|midrange|budget|entry",
-  "screen_size": "string",
-  "ram": "string",
-  "storage": "string",
-  "battery": "string",
-  "camera": "string",
-  "processor": "string",
-  "features": ["array", "of", "features"],
-  "os": "string"
-}
-```
-
-## Thêm dữ liệu mới
-
-### 1. Từ JSON file
-```python
-from knowledge_base import DataIndexer, VectorStore, EmbeddingModel
-
-# Initialize
-embedding_model = EmbeddingModel()
-vector_store = VectorStore()
-indexer = DataIndexer(vector_store, embedding_model)
-
-# Index from JSON
-stats = indexer.index_from_json("path/to/phones.json")
-```
-
-### 2. Từ CSV file
-```python
-# With column mapping
-column_mapping = {
-    "Phone Name": "name",
-    "Brand Name": "brand",
-    "Price (VND)": "price"
-}
-
-stats = indexer.index_from_csv(
-    "path/to/phones.csv",
-    column_mapping=column_mapping
-)
-```
-
-### 3. Single phone via API
-```bash
-curl -X POST "http://localhost:8000/api/index/phone" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "iPhone 15",
-    "brand": "Apple",
-    "price": 25000000,
-    "ram": "6GB",
-    "storage": "128GB"
-  }'
-```
-
-## Embedding Models
-
-Có thể thay đổi model trong `.env`:
-
-- `all-MiniLM-L6-v2`: Nhanh, nhẹ, phù hợp cho production
-- `all-mpnet-base-v2`: Chất lượng cao hơn, chậm hơn
-- `paraphrase-multilingual-MiniLM-L12-v2`: Hỗ trợ đa ngôn ngữ
-
-## Troubleshooting
-
-### 1. ChromaDB errors
-```bash
-# Clear database
-rm -rf data/chroma_db/
-python run_system.py index --clear
-```
-
-### 2. Memory issues với embedding model
-Giảm batch_size trong indexing:
-```python
-indexer.index_from_json("data.json", batch_size=16)
-```
-
-### 3. Port đã được sử dụng
-Thay đổi port trong `.env`:
-```env
-API_PORT=8001
-```
-
-## Performance Tips
-
-1. **Indexing**: Sử dụng batch processing với batch_size phù hợp
-2. **Search**: Limit số kết quả trả về (n_results)
-3. **Embedding Model**: Chọn model phù hợp với use case
-4. **Caching**: ChromaDB tự động cache, không cần setup thêm
-
-## Development
-
-### Thêm retrieval strategy mới
-```python
-# In retriever.py
-def retrieve_by_custom_strategy(self, params):
-    # Your custom logic
-    pass
-```
-
-### Customize embedding
-```python
-# In embeddings.py
-def encode_custom_format(self, data):
-    # Custom encoding logic
-    pass
-```
-
-## Roadmap
-
-- [ ] Thêm support cho nhiều ngôn ngữ
-- [ ] Implement caching layer
-- [ ] Thêm real-time price updates
-- [ ] Integration với e-commerce APIs
-- [ ] User feedback learning
-- [ ] Advanced filtering options
+---
 
 ## License
-MIT
 
-## Contact
-For questions or support, please contact the development team.
+MIT
