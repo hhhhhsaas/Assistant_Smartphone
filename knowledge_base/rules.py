@@ -257,15 +257,15 @@ def get_default_rules() -> List[Rule]:
                      "explanation": "Với ngân sách 8-15 triệu, ưu tiên pin 5500mAh+"},
              priority=9),
 
-        # R3C: Battery thấp (<8 triệu) - Pin cực lớn, spec khác thấp
+        # R3C: Battery thấp (<8 triệu) - Pin khủng giá tốt
         Rule("R3C_BATTERY_LOW",
-             "Nếu cần pin trâu + ngân sách thấp → Pin cực lớn",
+             "Nếu cần pin trâu + ngân sách thấp → Pin khủng giá tốt",
              conditions={"user_need": "battery_life", "budget": {"max": 8000000}},
-             actions={"min_battery": 6000,
+             actions={"min_battery": 5000,
                      "min_processor_tier": "mid",
-                     "category_filter": ["budget", "entry"],
+                     "category_filter": ["budget", "entry", "midrange"],
                      "preferred_brands": ["Xiaomi", "Realme", "OPPO"],
-                     "explanation": "Với ngân sách dưới 8 triệu, chọn pin 6000mAh+ cho dùng cả ngày"},
+                     "explanation": "Với ngân sách dưới 8 triệu, chọn pin 5000mAh+ cho dùng cả ngày"},
              priority=8),
 
         # R3: Battery FALLBACK (không có ngân sách)

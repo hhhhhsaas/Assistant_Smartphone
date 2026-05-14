@@ -63,12 +63,13 @@ class PhoneFacts:
             match = True
             if 'brand' in criteria and fact.get('brand') != criteria['brand']:
                 match = False
-            phone_price = fact.get('price')
-            if 'min_price' in criteria and phone_price is not None \
-                    and phone_price < criteria['min_price']:
+            phone_price = fact.get('price', 0)
+            # Phones with price=0 means "Liên Hệ" (unknown price) - exclude from budget-based searches
+            if ('min_price' in criteria or 'max_price' in criteria) and (not phone_price or phone_price <= 0):
                 match = False
-            if 'max_price' in criteria and phone_price is not None \
-                    and phone_price > criteria['max_price']:
+            if 'min_price' in criteria and phone_price and phone_price < criteria['min_price']:
+                match = False
+            if 'max_price' in criteria and phone_price and phone_price > criteria['max_price']:
                 match = False
             if 'category' in criteria:
                 cats = criteria['category']

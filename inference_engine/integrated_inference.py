@@ -57,14 +57,16 @@ class IntegratedPhoneAdvisor:
         """Convert processor string to performance tier for comparison"""
         if not processor_str:
             return 'low'
-        
+
+        # Normalize: remove ® ™ and extra spaces
         proc_lower = processor_str.lower().strip()
-        
+        proc_lower = proc_lower.replace('®', '').replace('™', '').replace('  ', ' ')
+
         # Check for exact matches first
         for key, tier in self.processor_tiers.items():
             if key in proc_lower:
                 return tier
-        
+
         # Fallback patterns for unknown processors
         if any(x in proc_lower for x in ['snapdragon 8', 'snapdragon 7+', 'dimensity 9', 'dimensity 8']):
             return 'high'
@@ -126,13 +128,13 @@ class IntegratedPhoneAdvisor:
 
         # ─── 2. NGÂN SÁCH ─────────────────────────────────────
         budget_patterns = [
-            (r'(?:từ|khoảng|tầm)\s*(\d+)\s*(?:triệu|tr)\s*(?:đến|->|–)\s*(\d+)\s*(?:triệu|tr)',
+            (r'(?:từ|khoảng|tầm)\s*(\d+)\s*(?:triệu|tr)?\s*(?:đến|->|–|-)\s*(\d+)\s*(?:triệu|tr)',
              lambda m: (int(m.group(1)) * 1000000, int(m.group(2)) * 1000000)),
             (r'(?:trên|hơn)\s*(\d+)\s*(?:triệu|tr)',
              lambda m: (int(m.group(1)) * 1000000, None)),
             (r'(?:dưới|dươi|dí|\bchưa tới)\s*(\d+)\s*(?:triệu|tr)',
              lambda m: (None, int(m.group(1)) * 1000000)),
-            (r'(\d+)\s*(?:triệu|tr)\s*(?:đến|->|–)\s*(\d+)\s*(?:triệu|tr)',
+            (r'(\d+)\s*(?:triệu|tr)?\s*(?:đến|->|–|-)\s*(\d+)\s*(?:triệu|tr)',
              lambda m: (int(m.group(1)) * 1000000, int(m.group(2)) * 1000000)),
             # THU HẺP DUNG SAI: tầm 20 triệu → 18-22 triệu (±10% thay vì ±20%)
             (r'(?:tầm|khoảng|giá|tầm giá)\s*(\d+)\s*(?:triệu|tr)?',
@@ -413,12 +415,18 @@ class IntegratedPhoneAdvisor:
             },
         })
 
+        budget = user_input.get('budget', 0)
+
         scored = []
         for phone in filtered:
-            fuzzy_score = self.fuzzy_system.calculate_score(phone, fuzzy_prefs)
-            fuzzy_breakdown = self.fuzzy_system.calculate_detailed_score(phone, fuzzy_prefs)
+            fuzzy_score = self.fuzzy_system.calculate_score(phone, fuzzy_prefs, budget=budget)
+            fuzzy_breakdown = self.fuzzy_system.calculate_detailed_score(phone, fuzzy_prefs, budget=budget)
             rule_score, rule_details = self._calc_rule_compliance(phone, inferred_facts)
             total = fuzzy_score * 0.7 + rule_score * 0.3
+
+            # Penalize phones with unknown price (price=0 means "Liên Hệ")
+            if not phone.get('price') or phone.get('price', 0) <= 0:
+                total *= 0.6
 
             explanations = self.explanation.generate(
                 phone, inferred_facts, user_input, activated_rules)

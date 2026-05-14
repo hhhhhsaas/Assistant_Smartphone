@@ -205,7 +205,27 @@ class PhoneFuzzySystem:
 
         return memberships
 
-    def calculate_score(self, phone_data: Dict, user_preferences: Dict = None) -> float:
+    def calculate_price_budget_fitness(self, phone_price: float, budget: float) -> float:
+        """Tính price fitness dựa trên tỷ lệ giá/ngân sách.
+        Phone nằm trong khoảng 50-100% budget được điểm cao nhất.
+        Quá rẻ (<30% budget) bị giảm điểm vì thiếu tính năng.
+        Vượt budget bị giảm nhanh."""
+        if not budget or budget <= 0 or not phone_price or phone_price <= 0:
+            return 0.0
+        ratio = phone_price / budget
+        if ratio <= 0.3:
+            return 0.3 + (ratio / 0.3) * 0.3
+        elif ratio <= 0.5:
+            return 0.6 + ((ratio - 0.3) / 0.2) * 0.3
+        elif ratio <= 1.0:
+            return 0.9 + ((ratio - 0.5) / 0.5) * 0.1
+        elif ratio <= 1.1:
+            return 1.0 - ((ratio - 1.0) / 0.1) * 0.3
+        else:
+            return max(0.0, 0.7 - (ratio - 1.1) * 2)
+
+    def calculate_score(self, phone_data: Dict, user_preferences: Dict = None,
+                        budget: float = None) -> float:
         """Tính điểm fuzzy tổng hợp cho điện thoại"""
         memberships = self.calculate_memberships(phone_data)
 
@@ -226,8 +246,12 @@ class PhoneFuzzySystem:
         total_weight = 0
 
         for criterion, weight in weights.items():
-            if criterion in memberships and memberships[criterion]:
-                # Lấy giá trị membership cao nhất
+            if criterion == 'price' and budget and budget > 0:
+                price_fitness = self.calculate_price_budget_fitness(
+                    phone_data.get('price', 0), budget)
+                total_score += price_fitness * weight
+                total_weight += weight
+            elif criterion in memberships and memberships[criterion]:
                 max_membership = max(memberships[criterion].values())
                 total_score += max_membership * weight
                 total_weight += weight
@@ -238,25 +262,33 @@ class PhoneFuzzySystem:
 
         return total_score
 
-    def calculate_detailed_score(self, phone_data: Dict, user_preferences: Dict = None) -> Dict:
+    def calculate_detailed_score(self, phone_data: Dict, user_preferences: Dict = None,
+                                   budget: float = None) -> Dict:
         """Tính điểm chi tiết từng tiêu chí với giải thích"""
         memberships = self.calculate_memberships(phone_data)
-        
+
         default_weights = {
             'price': 0.20, 'battery': 0.20, 'camera': 0.20,
             'ram': 0.15, 'screen': 0.10, 'performance': 0.15
         }
         weights = user_preferences if user_preferences else default_weights
-        
+
         breakdown = {}
-        
+
         for criterion, weight in weights.items():
-            if criterion in memberships and memberships[criterion]:
+            if criterion == 'price' and budget and budget > 0:
+                price_fitness = self.calculate_price_budget_fitness(
+                    phone_data.get('price', 0), budget)
+                reason = self._get_score_reason(criterion, phone_data, price_fitness)
+                breakdown[criterion] = {
+                    'weight': weight,
+                    'score': price_fitness,
+                    'weighted_score': price_fitness * weight,
+                    'reason': reason
+                }
+            elif criterion in memberships and memberships[criterion]:
                 max_membership = max(memberships[criterion].values())
-                
-                # Tạo giải thích dựa trên giá trị phone
                 reason = self._get_score_reason(criterion, phone_data, max_membership)
-                
                 breakdown[criterion] = {
                     'weight': weight,
                     'score': max_membership,
@@ -270,7 +302,7 @@ class PhoneFuzzySystem:
                     'weighted_score': 0,
                     'reason': 'Không có dữ liệu'
                 }
-        
+
         return breakdown
     
     def _get_score_reason(self, criterion: str, phone: Dict, score: float) -> str:
