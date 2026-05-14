@@ -1,0 +1,46 @@
+{
+  "total_phones": 525,
+  "brands": [
+    "ASUS",
+    "Apple",
+    "HONOR",
+    "Huawei",
+    "Infinix",
+    "Itel",
+    "Masstel",
+    "Meizu",
+    "Nokia",
+    "Nothing Phone",
+    "Nubia",
+    "OPPO",
+    "OnePlus",
+    "Samsung",
+    "Sony",
+    "TCL",
+    "Tecno",
+    "Xiaomi",
+    "realme",
+    "vivo"
+  ],
+  "categories": {
+    "flagship": 96,
+    "midrange": 155,
+    "budget": 194,
+    "entry": 54,
+    "foldable": 20,
+    "gaming": 6
+  },
+  "price_range": {
+    "min": 450000,
+    "max": 64990000,
+    "avg": 13651149
+  },
+  "data_quality": {
+    "has_ram": 463,
+    "has_battery": 474,
+    "has_camera": 487,
+    "has_screen": 499,
+    "has_weight": 422,
+    "total": 525
+  }
+}

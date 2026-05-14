@@ -1,0 +1,7 @@
+from inference_engine.fuzzy_logic import PhoneFuzzySystem
+from inference_engine.forward_chaining import ForwardChainingEngine
+from inference_engine.conflict_resolution import (
+    PriorityStrategy, SpecificityStrategy, RecencyStrategy, CompositeStrategy
+)
+from inference_engine.explanation import ExplanationGenerator
+from inference_engine.integrated_inference import IntegratedPhoneAdvisor

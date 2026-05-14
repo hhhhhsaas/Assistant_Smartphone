@@ -1,0 +1,24 @@
+# Core dependencies
+pandas==2.2.0
+numpy==1.26.3
+openpyxl==3.1.2
+scikit-learn==1.4.1
+
+# Streamlit UI
+streamlit==1.32.0
+plotly==5.19.0
+altair==5.2.0
+
+# Optional: Vector database and embeddings
+# Uncomment if you want to use ChromaDB instead of SimpleVectorStore
+# chromadb==0.4.22
+# sentence-transformers==2.3.1
+
+# Optional: API framework
+# Uncomment if you want to build REST API
+# fastapi==0.109.0
+# uvicorn==0.27.0
+# pydantic==2.5.3
+
+# Utils
+python-dotenv==1.0.0

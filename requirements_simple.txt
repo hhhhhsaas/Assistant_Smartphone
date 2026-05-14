@@ -1,0 +1,9 @@
+# Simplified requirements - use latest compatible versions
+pandas
+numpy
+openpyxl
+scikit-learn
+streamlit
+plotly
+altair
+python-dotenv
