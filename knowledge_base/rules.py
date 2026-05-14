@@ -211,11 +211,11 @@ def get_default_rules() -> List[Rule]:
         Rule("R2_PHOTOGRAPHY_HIGH",
              "Nếu người dùng thích chụp ảnh + ngân sách cao → Flagship Camera",
              conditions={"user_need": "photography", "budget": {"min": 15000000}},
-             actions={"min_camera_mp": 50,
+             actions={"min_camera_mp": 48,
                       "required_camera_ois": True,
                       "required_camera_night": True,
                       "preferred_brands": ["Apple", "Samsung", "Google", "OPPO"],
-                      "explanation": "Với ngân sách trên 15 triệu, bạn cần điện thoại flagship với camera 50MP+, OIS và chế độ chụp đêm"},
+                      "explanation": "Với ngân sách trên 15 triệu, bạn cần điện thoại flagship với camera 48MP+, OIS và chế độ chụp đêm"},
              priority=10),
 
         # R2A: Photography ngân sách trung (8-15 triệu) - Camera tốt, giá hợp lý
@@ -329,14 +329,23 @@ def get_default_rules() -> List[Rule]:
                       "explanation": "Với ngân sách 10-25 triệu, tìm điện thoại tầm trung đến cao cấp"},
              priority=4),
 
-        # R8: Foldable
+        # R8: Foldable (ngân sách cao)
         Rule("R8_FOLDABLE",
-             "Nếu thích công nghệ mới → Màn hình gập",
+             "Nếu thích công nghệ mới + ngân sách cao → Màn hình gập",
              conditions={"user_need": "innovation", "budget": {"min": 25000000}},
              actions={"category_filter": "foldable",
                       "preferred_brands": ["Samsung"],
                       "explanation": "Điện thoại màn hình gập với công nghệ tiên tiến"},
              priority=9),
+
+        # R8B: Foldable fallback (không có ngân sách)
+        Rule("R8B_FOLDABLE_FALLBACK",
+             "Nếu thích công nghệ mới (không có ngân sách) → Màn hình gập",
+             conditions={"user_need": "innovation"},
+             actions={"category_filter": "foldable",
+                      "preferred_brands": ["Samsung"],
+                      "explanation": "Tìm điện thoại màn hình gập"},
+             priority=4),
 
         # R9: Student (UI set user_need=student, không phải user_type)
         Rule("R9_STUDENT",

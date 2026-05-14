@@ -199,7 +199,7 @@ class ExplanationGenerator:
                     explanations.append(f"✓ Pin {bat_num}mAh")
             else:
                 explanations.append(f"✓ Pin {bat}")
-        except:
+        except (ValueError, TypeError, AttributeError):
             explanations.append(f"✓ Pin {bat}")
 
     @staticmethod
@@ -224,9 +224,9 @@ class ExplanationGenerator:
                     hz = int(match.group(1))
                     if hz >= 120:
                         explanations.append(
-                            f"✓ Tần số quét {Hz}màn hình mượt mà, gaming đỉnh cao")
+                            f"✓ Tần số quét {hz}Hz màn hình mượt mà, gaming đỉnh cao")
                     elif hz >= 90:
                         explanations.append(
-                            f"✓ Tần số quét {Hz}h gaming ổn định")
-            except:
+                            f"✓ Tần số quét {hz}Hz gaming ổn định")
+            except (ValueError, TypeError, AttributeError):
                 pass

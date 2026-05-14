@@ -23,12 +23,12 @@
     "vivo"
   ],
   "categories": {
-    "flagship": 96,
-    "midrange": 155,
-    "budget": 194,
-    "entry": 54,
+    "flagship": 109,
+    "midrange": 206,
+    "entry": 23,
     "foldable": 20,
-    "gaming": 6
+    "budget": 160,
+    "gaming": 7
   },
   "price_range": {
     "min": 450000,

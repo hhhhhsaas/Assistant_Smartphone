@@ -593,7 +593,7 @@ class IntegratedPhoneAdvisor:
             actual_tier = self._get_processor_tier(processor_str)
             
             # Tier order: low < mid < upper-mid < high
-            tier_order = {'low': 0, 'mid': 1, 'upper-mid': 2, 'high': 3}
+            tier_order = {'low': 0, 'mid': 1, 'gaming-mid': 1, 'upper-mid': 2, 'high': 3}
             required_level = tier_order.get(required_tier, 0)
             actual_level = tier_order.get(actual_tier, 0)
             
@@ -786,7 +786,7 @@ class IntegratedPhoneAdvisor:
             processor_str = str(phone.get('processor', '')).lower()
             actual_tier = self._get_processor_tier(processor_str)
             
-            tier_order = {'low': 0, 'mid': 1, 'upper-mid': 2, 'high': 3}
+            tier_order = {'low': 0, 'mid': 1, 'gaming-mid': 1, 'upper-mid': 2, 'high': 3}
             required_level = tier_order.get(required_tier, 0)
             actual_level = tier_order.get(actual_tier, 0)
             

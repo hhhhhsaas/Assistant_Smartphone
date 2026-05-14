@@ -93,7 +93,7 @@ def parse_nfc(v):
     if not v or (isinstance(v, float) and np.isnan(v)):
         return None
     s = str(v).lower()
-    return 'Có' in s or 'yes' in s or 'true' in s or v is True
+    return 'có' in s or 'yes' in s or 'true' in s or v is True
 
 
 def extract_ram_gb(v):
