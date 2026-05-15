@@ -1,0 +1,482 @@
+================================================================================
+QUY TRÌNH XỬ LÝ CHI TIẾT TRONG CODE
+================================================================================
+
+LUỒNG CHÍNH: app.py → integrated_inference.py → các modules
+
+================================================================================
+BƯỚC 0: KHỞI ĐỘNG HỆ THỐNG
+================================================================================
+
+File: app.py (dòng 594-598)
+-----------------------------
+if 'advisor' not in st.session_state:
+    st.session_state.advisor = IntegratedPhoneAdvisor(
+        kb_path="./data/cellphones_vector_store.pkl"
+    )
+
+→ Load Knowledge Base với 525 phones + 66 rules
+
+================================================================================
+BƯỚC 1: NHẬN INPUT TỪ USER
+================================================================================
+
+File: app.py (dòng 613-616)
+-----------------------------
+if st.button("🔍 Tìm kiếm", type="primary"):
+    if user_query:
+        parsed_input = st.session_state.advisor.process_user_request(user_query)
+        recommendations = st.session_state.advisor.recommend_phones(parsed_input, n_results=50)
+
+Gọi 2 hàm chính:
+1. process_user_request() - NLP parsing
+2. recommend_phones() - Suy luận + scoring
+
+================================================================================
+BƯỚC 2: NLP PARSING
+================================================================================
+
+File: inference_engine/integrated_inference.py (dòng 80-295)
+-------------------------------------------------------------
+
+def process_user_request(self, user_request: str) -> Dict:
+    return self.parse_natural_language(user_request)
+
+def parse_natural_language(self, text: str) -> Dict:
+    text_lower = text.lower()
+    parsed = {}
+
+    # ─── 1. NHẬN DẠNG NHU CẦU (dòng 88-126) ─────────
+    need_map = [
+        (['chơi game', 'gaming', 'pubg', 'liên quân'], 'gaming'),
+        (['chụp ảnh', 'camera', 'nhiếp ảnh'], 'photography'),
+        (['pin trâu', 'pin lâu', 'trâu'], 'battery_life'),
+        # ... 14 loại nhu cầu
+    ]
+
+    for keywords, need_val in need_map:
+        for kw in keywords:
+            if kw in text_lower:
+                parsed['user_need'] = need_val
+                break
+
+    # ─── 2. PARSE NGÂN SÁCH (dòng 130-153) ──────────
+    budget_patterns = [
+        # "tầm 15 triệu" → ±10%
+        (r'(?:tầm|khoảng)\s*(\d+)\s*(?:triệu|tr)?',
+         lambda m: (int(m.group(1)) * 1000000 * 0.9,
+                   int(m.group(1)) * 1000000 * 1.1)),
+
+        # "từ 10 đến 15 triệu"
+        (r'(?:từ)\s*(\d+)\s*(?:triệu|tr)?\s*(?:đến)\s*(\d+)\s*(?:triệu|tr)',
+         lambda m: (int(m.group(1)) * 1000000,
+                   int(m.group(2)) * 1000000)),
+    ]
+
+    for pattern, extractor in budget_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            min_b, max_b = extractor(match)
+            parsed['budget_min'] = min_b
+            parsed['budget'] = max_b
+            break
+
+    # ─── 3. NHẬN DẠNG BRAND (dòng 166-182) ──────────
+    brand_map = {
+        'iphone': 'Apple', 'apple': 'Apple',
+        'samsung': 'Samsung', 'galaxy': 'Samsung',
+        'xiaomi': 'Xiaomi', 'redmi': 'Xiaomi',
+        'oppo': 'OPPO', 'reno': 'OPPO',
+    }
+
+    for keyword, brand in brand_map.items():
+        if keyword in text_lower:
+            parsed['preferred_brand'] = brand
+            break
+
+    # ─── 4. DETECT FEATURES (dòng 183-295) ──────────
+    # NFC, 5G, sạc không dây, jack tai nghe...
+    if 'nfc' in text_lower:
+        parsed['required_nfc'] = True
+    if '5g' in text_lower:
+        parsed['network'] = '5G'
+
+    return parsed
+
+OUTPUT MẪU:
+{
+    "user_need": "gaming",
+    "budget": 16500000,
+    "budget_min": 13500000,
+    "preferred_brand": "Samsung"
+}
+
+================================================================================
+BƯỚC 3: FORWARD CHAINING
+================================================================================
+
+File: inference_engine/integrated_inference.py (dòng 297-322)
+--------------------------------------------------------------
+
+def recommend_phones(self, user_input: Dict, n_results: int = 50):
+    # Bước 1: Forward Chaining
+    snapshot = self.inference_engine.infer(
+        self.knowledge_base.get_all_rules(),
+        user_input
+    )
+    inferred_facts = snapshot['inferred_facts']
+    activated_rules = snapshot['activated_rules']
+
+File: inference_engine/forward_chaining.py (dòng 22-56)
+--------------------------------------------------------
+
+def infer(self, rules: List[Rule], initial_facts: Dict) -> Dict:
+    self.memory.set_facts(initial_facts)
+    changed = True
+
+    while changed:
+        changed = False
+
+        # Lọc rules chưa fire và thỏa điều kiện
+        candidates = [
+            r for r in rules
+            if r.id not in self.memory.activated_rules
+            and r.evaluate(self.memory.facts)
+        ]
+
+        # Conflict Resolution: sắp xếp theo priority
+        ordered = self.strategy.resolve(
+            candidates,
+            self.memory.activated_rules,
+            self.memory.facts
+        )
+
+        # Fire rules theo thứ tự
+        for rule in ordered:
+            self.memory.add_activated_rule(rule.id)
+
+            # Apply actions
+            for key, value in rule.actions.items():
+                self.memory.add_inferred_fact(key, value)
+                self.memory.facts[key] = self.memory.inferred_facts[key]
+
+            changed = True
+
+File: knowledge_base/rules.py (dòng 61-271)
+--------------------------------------------
+Rule("R1_GAMING_HIGH",
+     "Nếu người dùng chơi game + ngân sách >15 triệu → Flagship Gaming",
+     conditions={"user_need": "gaming", "budget": {"min": 15000000}},
+     actions={
+         "category_filter": ["gaming", "flagship"],
+         "min_ram": "12GB",
+         "min_processor_tier": "high",
+         "min_refresh_rate": 120
+     },
+     priority=10),
+
+WORKING MEMORY MERGE (working_memory.py dòng 29-76):
+------------------------------------------------------
+def add_inferred_fact(self, key: str, value: Any):
+    old_value = self.inferred_facts.get(key)
+
+    # Category filter: UNION
+    if key == "category_filter":
+        old_list = list(old_value) if old_value else []
+        new_list = list(value) if isinstance(value, list) else [value]
+        merged = list(dict.fromkeys(old_list + new_list))
+        self.inferred_facts[key] = merged
+
+    # Min values: MAX
+    elif key in ("min_battery", "min_camera_mp"):
+        self.inferred_facts[key] = max(float(old_value), float(value))
+
+    # Other keys: override
+    else:
+        self.inferred_facts[key] = value
+
+OUTPUT MẪU:
+{
+    "category_filter": ["gaming", "flagship", "midrange"],
+    "min_ram": "12GB",
+    "min_processor_tier": "high",
+    "min_refresh_rate": 120,
+    "min_battery": 4500
+}
+
+================================================================================
+BƯỚC 4: KNOWLEDGE BASE SEARCH
+================================================================================
+
+File: inference_engine/integrated_inference.py (dòng 354-372)
+--------------------------------------------------------------
+
+# Tạo search criteria từ user input + inferred facts
+search_criteria = {}
+if 'budget' in user_input:
+    search_criteria['max_price'] = user_input['budget']
+if 'budget_min' in user_input:
+    search_criteria['min_price'] = user_input['budget_min']
+if 'category_filter' in inferred_facts:
+    search_criteria['category'] = inferred_facts['category_filter']
+if 'preferred_brand' in user_input:
+    search_criteria['brand'] = user_input['preferred_brand']
+
+# Gọi KB search
+candidates = self.knowledge_base.search_phones(
+    search_criteria,
+    n_results=500
+)
+
+File: knowledge_base/phone_facts.py (dòng 59-84)
+--------------------------------------------------
+
+def search_by_criteria(self, criteria: Dict, n_results: int = 500):
+    results = []
+    for fact in self.facts:
+        match = True
+
+        # Check brand
+        if 'brand' in criteria and fact.get('brand') != criteria['brand']:
+            match = False
+
+        # Check price (LOẠI PRICE=0)
+        phone_price = fact.get('price', 0)
+        if ('min_price' in criteria or 'max_price' in criteria) \
+           and (not phone_price or phone_price <= 0):
+            match = False  # Loại phones "Liên Hệ"
+
+        if 'min_price' in criteria and phone_price < criteria['min_price']:
+            match = False
+        if 'max_price' in criteria and phone_price > criteria['max_price']:
+            match = False
+
+        # Check category
+        if 'category' in criteria:
+            cats = criteria['category']
+            if fact.get('category') not in cats:
+                match = False
+
+        if match:
+            results.append(fact)
+
+    return results
+
+OUTPUT: 45 candidates (từ 525 phones ban đầu)
+
+================================================================================
+BƯỚC 5: FILTERING (LỌC TINH)
+================================================================================
+
+File: inference_engine/integrated_inference.py (dòng 382-387)
+--------------------------------------------------------------
+
+filtered = []
+for phone in candidates:
+    if self._passes_filters(phone, inferred_facts, user_input):
+        filtered.append(phone)
+
+def _passes_filters(self, phone: Dict, inferred: Dict, user_input: Dict):
+    # Check RAM (dòng 490-499)
+    if 'min_ram' in inferred:
+        pr = phone.get('ram', '')
+        req = int(inferred['min_ram'].replace('GB', ''))
+        pv = int(pr.replace('GB', ''))
+        if pv < req:
+            return False
+
+    # Check Processor Tier (dòng 590-601)
+    if 'min_processor_tier' in inferred:
+        required_tier = inferred['min_processor_tier']
+        processor_str = str(phone.get('processor', '')).lower()
+
+        # Normalize: xóa ® ™
+        processor_str = processor_str.replace('®', '').replace('™', '')
+
+        actual_tier = self._get_processor_tier(processor_str)
+        tier_order = {'low': 0, 'mid': 1, 'gaming-mid': 1,
+                     'upper-mid': 2, 'high': 3}
+
+        if tier_order[actual_tier] < tier_order[required_tier]:
+            return False
+
+    # Check Battery (dòng 508-516)
+    if 'min_battery' in inferred:
+        bt = phone.get('battery', '0')
+        bv = int(re.search(r'(\d+)', str(bt)).group(1))
+        if bv < inferred['min_battery']:
+            return False
+
+    # Check NFC (dòng 528-531)
+    if 'required_nfc' in inferred:
+        nfc = phone.get('nfc')
+        if not nfc or nfc is False:
+            return False
+
+    return True
+
+OUTPUT: 22 phones pass filters
+
+================================================================================
+BƯỚC 6: FUZZY LOGIC SCORING
+================================================================================
+
+File: inference_engine/integrated_inference.py (dòng 416-436)
+--------------------------------------------------------------
+
+budget = user_input.get('budget', 0)
+
+scored = []
+for phone in filtered:
+    # Tính Fuzzy Score
+    fuzzy_score = self.fuzzy_system.calculate_score(
+        phone, fuzzy_prefs, budget=budget
+    )
+
+    # Tính Rule Compliance Score
+    rule_score, rule_details = self._calc_rule_compliance(
+        phone, inferred_facts
+    )
+
+    # Tổng điểm
+    total = fuzzy_score * 0.7 + rule_score * 0.3
+
+    # Penalty cho price=0
+    if not phone.get('price') or phone.get('price', 0) <= 0:
+        total *= 0.6
+
+    scored.append({
+        'phone': phone,
+        'fuzzy_score': fuzzy_score,
+        'rule_score': rule_score,
+        'total_score': total
+    })
+
+File: inference_engine/fuzzy_logic.py (dòng 227-263)
+------------------------------------------------------
+
+def calculate_score(self, phone_data: Dict, user_preferences: Dict,
+                   budget: float = None):
+    memberships = self.calculate_memberships(phone_data)
+
+    # Trọng số cho gaming
+    weights = {
+        'performance': 0.35,
+        'screen': 0.30,
+        'ram': 0.15,
+        'battery': 0.12,
+        'price': 0.05,
+        'camera': 0.03
+    }
+
+    total_score = 0
+    total_weight = 0
+
+    for criterion, weight in weights.items():
+        if criterion == 'price' and budget > 0:
+            # Budget-aware price scoring
+            price_fitness = self.calculate_price_budget_fitness(
+                phone_data.get('price', 0), budget
+            )
+            total_score += price_fitness * weight
+        else:
+            # Fuzzy membership scoring
+            max_membership = max(memberships[criterion].values())
+            total_score += max_membership * weight
+
+        total_weight += weight
+
+    return total_score / total_weight
+
+def calculate_price_budget_fitness(self, phone_price: float, budget: float):
+    ratio = phone_price / budget
+
+    if ratio <= 0.3:  # Quá rẻ
+        return 0.3 + (ratio / 0.3) * 0.3
+    elif ratio <= 0.5:  # Rẻ, chấp nhận
+        return 0.6 + ((ratio - 0.3) / 0.2) * 0.3
+    elif ratio <= 1.0:  # Gần budget, tốt nhất
+        return 0.9 + ((ratio - 0.5) / 0.5) * 0.1
+    elif ratio <= 1.1:  # Hơi vượt
+        return 1.0 - ((ratio - 1.0) / 0.1) * 0.3
+    else:  # Vượt nhiều
+        return max(0.0, 0.7 - (ratio - 1.1) * 2)
+
+================================================================================
+BƯỚC 7: RANKING & OUTPUT
+================================================================================
+
+File: inference_engine/integrated_inference.py (dòng 438-461)
+--------------------------------------------------------------
+
+# Sắp xếp theo điểm giảm dần
+scored.sort(key=lambda x: x['total_score'], reverse=True)
+results = scored[:n_results]
+
+# Pipeline log cho UI
+self.pipeline_log.append({
+    'step': 5,
+    'name': 'Ranking & Output',
+    'output': {
+        'returned': len(results),
+        'top_3': [(r['phone']['name'], r['total_score']*100)
+                  for r in results[:3]]
+    }
+})
+
+return results
+
+File: app.py (dòng 618-685) - HIỂN THỊ KẾT QUẢ
+------------------------------------------------
+
+if recommendations['results']:
+    for idx, result in enumerate(recommendations['results'][:10]):
+        phone = result['phone']
+        total_score = result.get('total_score', 0) * 100
+
+        # Hiển thị thông tin cơ bản
+        st.write(f"**{idx+1}. {phone['name']}**")
+        st.write(f"💯 Điểm phù hợp: {total_score:.1f}%")
+
+        # Expander chi tiết
+        with st.expander(f"Xem chi tiết"):
+            # Fuzzy Score breakdown
+            st.write("⚖️ **Fuzzy Score chi tiết (70%):**")
+            for criterion, details in fuzzy_breakdown.items():
+                st.write(f"- {criterion}: {details['score']*100:.0f}%")
+
+            # Rule Compliance breakdown
+            st.write("📋 **Rule Compliance (30%):**")
+            st.write(f"Đạt: {passed}/{total} rules")
+            for check, passed in rule_details.items():
+                icon = "✓" if passed else "✗"
+                st.write(f"{icon} {check}")
+
+================================================================================
+TỔNG KẾT LUỒNG XỬ LÝ
+================================================================================
+
+app.py (UI)
+    ↓
+integrated_inference.py
+    ├── parse_natural_language() → NLP parsing
+    ├── forward_chaining.py → Infer facts từ rules
+    ├── phone_facts.py → KB search
+    ├── _passes_filters() → Filter chi tiết
+    ├── fuzzy_logic.py → Tính điểm mờ
+    ├── _calc_rule_compliance() → Tính điểm tuân thủ
+    └── explanation.py → Tạo giải thích
+
+OUTPUT CUỐI CÙNG:
+{
+    "results": [
+        {
+            "phone": {...},
+            "fuzzy_score": 0.92,
+            "rule_score": 0.75,
+            "total_score": 0.87,
+            "explanations": [...]
+        },
+        ...
+    ]
+}

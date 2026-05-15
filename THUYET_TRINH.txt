@@ -1,0 +1,326 @@
+================================================================================
+        HỆ CHUYÊN GIA TƯ VẤN ĐIỆN THOẠI THÔNG MINH
+        EXPERT SYSTEM - SMARTPHONE ADVISOR
+================================================================================
+
+1. GIỚI THIỆU BÀI TOÁN
+================================================================================
+
+Vấn đề thực tế:
+- Thị trường có hàng trăm mẫu điện thoại với vô số thông số kỹ thuật phức tạp
+- Người dùng thường không am hiểu về chip, RAM, camera...
+- Họ chỉ biết nhu cầu: "Tôi cần điện thoại chơi game", "pin trâu", "chụp ảnh đẹp"
+- Các website bán hàng chỉ có bộ lọc cứng, không hiểu ngôn ngữ tự nhiên
+
+Giải pháp của chúng tôi:
+- Xây dựng HỆ CHUYÊN GIA mô phỏng tư duy của người tư vấn điện thoại
+- Input: Câu tiếng Việt tự nhiên
+- Output: Top điện thoại phù hợp + giải thích tại sao
+
+================================================================================
+2. CÔNG NGHỆ SỬ DỤNG
+================================================================================
+
+1) FORWARD CHAINING (Suy luận tiến)
+   - Xuất phát từ facts ban đầu
+   - Áp dụng rules IF-THEN để suy ra facts mới
+   - Lặp lại cho đến khi không còn rule nào fire được
+
+2) FUZZY LOGIC (Logic mờ)
+   - Xử lý các khái niệm mờ: pin "trâu", camera "đẹp", giá "rẻ"
+   - Dùng hàm membership để tính độ phù hợp
+   - Cho phép đánh giá theo nhiều tiêu chí cùng lúc
+
+3) NLP PARSER
+   - Hiểu tiếng Việt tự nhiên
+   - Nhận dạng: nhu cầu, ngân sách, thương hiệu, tính năng
+
+4) TECH STACK
+   - Python: Backend processing
+   - Streamlit: Web UI
+   - Pickle: Lưu trữ Knowledge Base
+
+================================================================================
+3. KIẾN TRÚC HỆ THỐNG - 3 TẦNG
+================================================================================
+
+TẦNG 1: USER INTERFACE (Streamlit)
+-----------------------------------
+- Nhập câu tiếng Việt tự nhiên
+- Hiển thị kết quả với điểm số
+- Pipeline Log: xem chi tiết quá trình suy luận
+
+TẦNG 2: INFERENCE ENGINE (Bộ máy suy luận)
+-------------------------------------------
+- NLP Parser: Phân tích câu tiếng Việt
+- Forward Chaining Engine: Áp dụng rules
+- Fuzzy Logic System: Tính điểm mờ
+- Explanation Generator: Tạo lời giải thích
+
+TẦNG 3: KNOWLEDGE BASE (Cơ sở tri thức)
+----------------------------------------
+- 525 Phone Facts (361 có giá thực)
+- 66 Inference Rules (IF-THEN)
+- Classification Rules (phân loại tự động)
+
+================================================================================
+4. QUY TRÌNH XỬ LÝ - 5 BƯỚC
+================================================================================
+
+INPUT: "Điện thoại chơi game tầm 15 triệu"
+
+-------------------
+BƯỚC 1: NLP PARSING
+-------------------
+Phân tích câu tiếng Việt thành dữ liệu có cấu trúc:
+
+- "chơi game" → user_need = "gaming"
+- "tầm 15 triệu" → budget = 16.5 triệu, budget_min = 13.5 triệu (±10%)
+- "Samsung" → preferred_brand = "Samsung"
+- "có NFC" → required_nfc = True
+
+Output: {
+    "user_need": "gaming",
+    "budget": 16500000,
+    "budget_min": 13500000
+}
+
+-----------------------
+BƯỚC 2: FORWARD CHAINING
+-----------------------
+Đánh giá 66 rules theo thứ tự priority:
+
+Rule R1_GAMING_HIGH (priority=10):
+IF user_need = "gaming" AND budget >= 15000000
+THEN
+    category_filter = ["gaming", "flagship"]
+    min_ram = 12GB
+    min_processor_tier = "high"
+    min_refresh_rate = 120Hz
+
+Conflict Resolution:
+- Rules sắp xếp theo priority (10 → 0)
+- Working Memory merge thông minh:
+  + min_battery: lấy MAX
+  + category_filter: UNION các categories
+  + preferred_brands: UNION các brands
+
+Output: Inferred facts {
+    "category_filter": ["gaming", "flagship", "midrange"],
+    "min_ram": "12GB",
+    "min_processor_tier": "high",
+    "min_refresh_rate": 120
+}
+
+-------------------------------------
+BƯỚC 3: KNOWLEDGE BASE SEARCH + FILTER
+-------------------------------------
+Gồm 2 giai đoạn:
+
+KB Search (tìm kiếm thô):
+- Lọc theo budget: 13.5 - 16.5 triệu
+- Lọc theo category: gaming, flagship, midrange
+- Lọc theo brand (nếu có)
+- LOẠI BỎ phones price=0 ("Liên Hệ")
+→ 525 phones → 45 candidates
+
+Filtering (lọc tinh):
+- Check RAM >= 12GB
+- Check processor tier >= "high"
+- Check refresh rate >= 120Hz
+- Check các features: NFC, 5G, wireless charging...
+→ 45 candidates → 22 phones pass
+
+-----------------------
+BƯỚC 4: FUZZY LOGIC SCORING
+-----------------------
+
+Tính điểm mờ cho từng phone qua 6 tiêu chí:
+
+1) Performance (Hiệu năng)
+   - Processor tier: low → mid → upper-mid → high
+   - Snapdragon 8 Gen 3 → "high" → score 1.0
+
+2) Battery (Pin)
+   - Yếu: < 3500mAh (score 0.2)
+   - Trung bình: 3000-4500mAh (score 0.5)
+   - Khỏe: 4000-5000mAh (score 0.8)
+   - Rất khỏe: > 5000mAh (score 1.0)
+
+3) Camera
+   - Cơ bản: < 20MP
+   - Tốt: 16-48MP
+   - Rất tốt: 32-108MP
+   - Chuyên nghiệp: > 64MP
+
+4) RAM: 4GB → 8GB → 12GB → 16GB+
+
+5) Screen: Kích thước + Refresh rate
+
+6) Price (Budget-aware - CẢI TIẾN MỚI)
+   Thay vì phân loại tuyệt đối, tính theo tỷ lệ giá/ngân sách:
+
+   ratio = phone_price / user_budget
+   - ratio 50-100%: Score 0.9-1.0 (Tốt nhất)
+   - ratio 30-50%: Score 0.6-0.9 (Chấp nhận)
+   - ratio < 30%: Score 0.3-0.6 (Quá rẻ, thiếu tính năng)
+   - ratio > 110%: Score giảm nhanh (Vượt budget)
+
+TRỌNG SỐ BẤT ĐỐI XỨNG theo nhu cầu:
+
+Gaming:      Performance 35%, Screen 30%, RAM 15%, Battery 12%, Price 5%, Camera 3%
+Photography: Camera 50%, Performance 15%, RAM 10%, Battery 10%, Price 10%, Screen 5%
+Battery:     Battery 55%, Performance 15%, Price 15%, RAM 8%, Screen 5%, Camera 2%
+Student:     Price 40%, Camera 20%, Battery 15%, Performance 10%, RAM 10%, Screen 5%
+
+Công thức tổng:
+Total Score = Fuzzy Score × 0.7 + Rule Compliance × 0.3
+
+Nếu phone có price=0 (không biết giá):
+Total Score × 0.6 (penalty)
+
+------------------------
+BƯỚC 5: RANKING & OUTPUT
+------------------------
+
+Sắp xếp theo Total Score giảm dần:
+
+1. OPPO Reno14 5G (79%)
+   - Snapdragon 8 Gen 2
+   - 12GB RAM
+   - Màn hình 120Hz
+   - Giá 16 triệu (97% budget)
+
+2. OPPO Find X5 Pro (79%)
+   - Snapdragon 8 Gen 1
+   - 12GB RAM
+   - Màn hình 120Hz
+   - Giá 16 triệu
+
+3. HONOR Magic 7 Pro (77%)
+   - Dimensity 9000
+   - 12GB RAM
+   - Màn hình 144Hz
+   - Giá 15.5 triệu
+
+Tạo giải thích:
+✓ Phù hợp chơi game (chip flagship, RAM cao)
+✓ Màn hình refresh rate cao cho gaming
+✓ Pin đủ dùng
+✓ Giá nằm trong ngân sách
+
+================================================================================
+5. CÁC TÍNH NĂNG ĐẶC BIỆT
+================================================================================
+
+1) XỬ LÝ PRICE=0 (Phones "Liên Hệ")
+   - Có 164/525 phones không có giá thực
+   - Khi có budget: Loại hoàn toàn khỏi kết quả
+   - Khi không có budget: Penalty ×0.6 trong scoring
+
+2) PROCESSOR TIER NORMALIZATION
+   - Strip ký tự ®™ trước khi classify
+   - Snapdragon® 6 Gen 3 → Snapdragon 6 Gen 3 → tier "mid"
+
+3) BUDGET PARSING LINH HOẠT
+   - "tầm 15 triệu" → 13.5 - 16.5 triệu (±10%)
+   - "từ 10 đến 15 triệu" → 10 - 15 triệu (chính xác)
+   - "dưới 15 triệu" → max 15 triệu
+   - "10-20 triệu" → 10 - 20 triệu
+
+4) PIPELINE LOG UI
+   Hiển thị chi tiết 5 bước xử lý:
+   - Input/Output của mỗi bước
+   - Rules được kích hoạt
+   - Số lượng phones sau mỗi bước filter
+   - Fuzzy weights visualization
+   - Top 3 kết quả với điểm số
+
+================================================================================
+6. KẾT QUẢ THỰC TẾ
+================================================================================
+
+Test với 15 trường hợp khác nhau:
+
+1. "Điện thoại chơi game tầm 15 triệu"
+   → 5 results: OPPO Reno14, Find X5 Pro (Snapdragon 8 series)
+
+2. "iPhone chụp ảnh đẹp dưới 25 triệu"
+   → 9 results: iPhone 16, 15 Plus (48MP camera + OIS)
+
+3. "Pin trâu giá rẻ cho sinh viên"
+   → 10 results: OPPO A6 Pro (7000mAh), Xiaomi (5000-6000mAh)
+
+4. "Samsung màn hình gập"
+   → 9 results: Galaxy Z Flip5, Z Fold7 (foldable category)
+
+5. "Xiaomi pin trâu tầm 7 triệu"
+   → 7 results: Redmi Note 15 5G (5520mAh), Redmi 15 5G (7000mAh)
+
+6. "Điện thoại có NFC và 5G tầm 8 triệu"
+   → 10 results: HONOR X7d 5G, Nubia Neo 5 (có NFC + 5G)
+
+7. "Điện thoại từ 10 đến 15 triệu"
+   → 36 results đa dạng thương hiệu
+
+TẤT CẢ ĐỀU KHÔNG CÓ PHONE PRICE=0 TRONG KẾT QUẢ!
+
+================================================================================
+7. ƯU ĐIỂM CỦA HỆ THỐNG
+================================================================================
+
+1) THÔNG MINH & LINH HOẠT
+   - Hiểu tiếng Việt tự nhiên
+   - Không cần user chọn từ menu cứng nhắc
+   - Suy luận đa tầng: rules + fuzzy
+
+2) GIẢI THÍCH ĐƯỢC (Explainable AI)
+   - Không phải "black box"
+   - User hiểu TẠI SAO phone được gợi ý
+   - Pipeline Log chi tiết từng bước
+
+3) XỬ LÝ DỮ LIỆU THỰC TẾ TỐT
+   - Handle phones không có giá
+   - Normalize processor names
+   - Budget parsing linh hoạt
+
+4) DỄ MỞ RỘNG & BẢO TRÌ
+   - 66 rules có thể thêm/sửa/xóa
+   - Fuzzy weights điều chỉnh được
+   - Code modular, tách biệt các components
+
+================================================================================
+8. HẠN CHẾ & HƯỚNG PHÁT TRIỂN
+================================================================================
+
+HẠN CHẾ:
+- Data: 164/525 phones không có giá thực
+- NLP cần dấu tiếng Việt (không hiểu "dien thoai")
+- Chưa tối ưu cho multi-criteria phức tạp
+
+HƯỚNG PHÁT TRIỂN:
+- Machine Learning: Train từ user feedback
+- Real-time pricing: Crawl giá từ websites
+- Chatbot: Hỏi đáp qua lại
+- User profile: Lưu preferences cá nhân
+
+================================================================================
+9. KẾT LUẬN
+================================================================================
+
+THÀNH CÔNG:
+✅ Hệ chuyên gia hoàn chỉnh: 525 phones, 66 rules
+✅ Forward Chaining + Fuzzy Logic hiệu quả
+✅ UI thân thiện với Pipeline Log
+✅ Xử lý tốt edge cases thực tế
+
+Ý NGHĨA:
+- Học thuật: Áp dụng AI cổ điển vào bài toán thực
+- Thực tiễn: Có thể triển khai cho cửa hàng
+- Framework: Dùng được cho laptop, xe hơi...
+
+GITHUB: https://github.com/hhhhhsaas/Assistant_Smartphone
+
+================================================================================
+                            THANK YOU!
+================================================================================
